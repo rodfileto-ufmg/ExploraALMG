@@ -1,7 +1,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-from funcoes.Figures import create_time_series_chart_go, create_horizontal_bar_chart_go
+from funcoes.Figuras import create_time_series_chart_go, create_horizontal_bar_chart_go
 
 
 def ler_arquivos_csv(ano):

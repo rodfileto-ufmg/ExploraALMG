@@ -1,12 +1,12 @@
 ---
 title: "Explorando dados abertos da ALMG"
 repo-url: https://github.com/rodfileto-ufmg/ExploraALMG
-repo-actions: [edit, source, issue]
 engine: jupyter
 lang: pt
 author: "Rodrigo Fileto"
 format:
   html:
+    link-external-newwindow: true
     code-fold: true
     theme:
       light: flatly
@@ -16,7 +16,7 @@ format:
     other-links:
       - text: Dados Abertos da ALMG
         href: https://dadosabertos.almg.gov.br
-    code-links: repo
+    code-links: repo  
 ---
 
 Seja bem vindo! Neste conjunto de documentos vamos explorar a plataforma de dados abertos da Assembléia Legislativa de Minas Gerais (ALMG).
@@ -127,7 +127,7 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
 
 from funcoes.utils import formatar_numero_brl
 
-from funcoes.Figures import create_horizontal_bar_chart_go
+from funcoes.Figuras import create_horizontal_bar_chart_go
 
 # Caminho para o database.db na raiz do projeto
 db_path = os.path.abspath(os.path.join(os.getcwd(), '../database.db'))
@@ -166,20 +166,18 @@ df.head()
 Destaca-se ainda a coluna "Autores" que comporta um dicionário com a lista de parlamentares ou outro tipos entes que participaram da autoria da proposição. A tabela oference ainda link para download do texto completo.
 
 ```{python}
-#| layout-nrow: 2
-#| layout-ncol: 1
-#| fig-cap: "Evolução temporal de proposições"
+#| label: fig-charts
+#| fig-cap: "Charts"
 #| fig-subcap: 
-#|   - "Evolução anual"
-#|   - "Série temporal com média movel"
+#|   - "Teste"
+#|   - "Second"
+#| layout-ncol: 2
 
 import numpy as np
-
-from funcoes.Figures import create_line_chart_go, create_time_series_chart_go
+from funcoes.Figuras import create_line_chart_go, create_time_series_chart_go
 from funcoes.utils import preprocessar_proposicao_media_movel
 
 # Checar valores nulos
-
 
 valores_nulos_data = df[df['DataPublicacao'].isnull()]
 
@@ -191,8 +189,6 @@ df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y')
 
 df['ano'] = df['data'].dt.year
 
-df['ano'].head()
-
 contagem_ano = df['ano'].value_counts().reset_index()
 
 contagem_ano.columns = ['ano', 'contagem']
@@ -203,7 +199,7 @@ fig = create_line_chart_go(
     data=contagem_ano,
     x_col='ano',
     y_col='contagem',
-    title='Contagem Anual de proposições',
+    title='',
     line_color='green',
     line_width=3,
     height=400
@@ -230,7 +226,7 @@ fig_media_movel = create_time_series_chart_go(
     date_col='date',
     value_col='total_propositions',
     ma_col='moving_avg_5d',
-    title='Proposições Diárias com Média Móvel de 10 Dias',
+    title='',
     height=500
 )
 
@@ -248,14 +244,8 @@ for data in legislaturas['dataInicio']:
     )
 
 fig.show()
-
 fig_media_movel.show()
-
-
 ```
 
 Vamos então observar a evolução de proposições legislativas ao longo do tempo. Primeiramente foi necessário lidar com os dados faltantes, uma vez que há `{python} nr_valores_nulos_data` registros sem valores de data de publicação
-
-
-
 

@@ -1,0 +1,258 @@
+---
+title: "Explorando dados abertos da ALMG"
+engine: jupyter
+lang: pt
+author: "Rodrigo Fileto"
+format:
+  html:
+    code-fold: true
+    theme:
+      light: flatly
+      dark: darkly
+    toc: true    
+    number-sections: true
+    other-links:
+      - text: Dados Abertos da ALMG
+        href: https://dadosabertos.almg.gov.br
+---
+
+Seja bem vindo! Neste conjunto de documentos vamos explorar a plataforma de dados abertos da Assembléia Legislativa de Minas Gerais (ALMG).
+
+# Importação dos dados das proposições legislativas
+
+Vejamos primeiro como exportar os dados. Para este projeto utilizei especificamente o conjunto de arquivos de proposições em formato csv disponibilizados na plataforma da ALMG. Os arquivos foram acessados e carregados em banco de dados no formato sqlite3, o qual pode ser acessado posteriormente em diversas ferramentas para análise, tais como o python e o R.
+
+::: {.panel-tabset}
+
+## Python {.active}
+``` {.python}
+import requests
+import pandas as pd
+import sqlite3
+from io import StringIO
+
+def baixar_arquivo_em_memoria(ano):
+    print(f"Baixando arquivos de proposições para o ano de {ano}")
+    url = f"https://dadosabertos.almg.gov.br/arquivo/proposicoes/download?ano={ano}&tipo=CSV"
+    response = requests.get(url)
+    response.raise_for_status()
+    print(f"Arquivo de {ano} baixado com sucesso na memória")
+    return response.text
+
+def carregar_csv_no_sqlite(ano, conn, tabela_nome='proposicoes'):
+    csv_text = baixar_arquivo_em_memoria(ano)
+    df = pd.read_csv(StringIO(csv_text))
+    # Opcional: adicionar uma coluna com o ano para identificar a origem
+    df['ano_arquivo'] = ano
+    df.to_sql(tabela_nome, conn, if_exists='append', index=False)
+    print(f"Dados do ano {ano} adicionados na tabela '{tabela_nome}'")
+
+conn = sqlite3.connect('proposicoes.db')
+anos = range(1980,2026)
+for ano in anos:
+    carregar_csv_no_sqlite(ano, conn)
+conn.close()
+```
+
+
+## R
+
+``` {.r}
+library(httr)
+library(readr)
+library(DBI)
+library(RSQLite)
+library(dplyr)
+
+baixar_arquivo_em_memoria <- function(ano) {
+  message(sprintf("Baixando arquivos de proposições para o ano de %d", ano))
+  url <- sprintf("https://dadosabertos.almg.gov.br/arquivo/proposicoes/download?ano=%d&tipo=CSV", ano)
+  response <- GET(url)
+  
+  if (http_error(response)) {
+    stop("Erro ao baixar o arquivo: ", status_code(response))
+  }
+  
+  message(sprintf("Arquivo de %d baixado com sucesso na memória", ano))
+  content(response, "text", encoding = "UTF-8")
+}
+
+carregar_csv_no_sqlite <- function(ano, conn, tabela_nome = "proposicoes") {
+  csv_text <- baixar_arquivo_em_memoria(ano)
+  
+  df <- read_csv(I(csv_text), show_col_types = FALSE)
+  
+  # Opcional: adicionar coluna com o ano
+  df <- df %>%
+    mutate(ano_arquivo = ano)
+  
+  dbWriteTable(conn, tabela_nome, df, append = TRUE)
+  
+  message(sprintf("Dados do ano %d adicionados na tabela '%s'", ano, tabela_nome))
+}
+
+# Conectar ao banco SQLite
+conn <- dbConnect(RSQLite::SQLite(), "proposicoes.db")
+
+# Iterar sobre os anos
+anos <- 1980:2025
+for (ano in anos) {
+  carregar_csv_no_sqlite(ano, conn)
+}
+
+# Fechar conexão
+dbDisconnect(conn)
+
+```
+:::
+
+# Exploração Inicial dos dados
+
+
+```{python}
+
+import pandas as pd
+import sys
+import os
+import sqlite3
+import locale
+
+locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+
+# Adiciona a raiz do projeto ao sys.path
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
+
+from funcoes.utils import formatar_numero_brl
+
+from funcoes.Figures import create_horizontal_bar_chart_go
+
+# Caminho para o database.db na raiz do projeto
+db_path = os.path.abspath(os.path.join(os.getcwd(), '../database.db'))
+
+# Conecta ao banco na raiz do projeto
+conn = sqlite3.connect(db_path)
+
+df = pd.read_sql_query(f"SELECT * FROM proposicoes", conn).sort_values('Ano', ascending=False, ignore_index=True)
+
+nr_proposicoes = formatar_numero_brl(len(df), casas_decimais=0)
+
+legislaturas = pd.read_sql_query(f"SELECT * from legislaturas", conn)
+
+legislaturas['dataInicio'] = pd.to_datetime(legislaturas['dataInicio'], format='%Y-%m-%d')
+
+# Fechar conexão
+conn.close()
+
+inicio_legislaturas_ano = legislaturas['dataInicio'].dt.year
+
+```
+
+
+Delimitei para esta análise todo o período disponibilizado (1959-2025) resultando na coleta de `{python} nr_proposicoes` proposicões. A @tbl-proposicao apresenta uma amostra destes dados. Como informações básicas temos o tipo, número e ano da proposição, o resumo (Ementa), temas (Indexacao) e em que fase do processo legislativo se encontra a proposição.
+
+
+```{python}
+#| label: tbl-proposicao
+#| tbl-cap: Amostra dos dados sobre proposições legislativas
+#| echo: false
+
+df.head()
+
+```
+
+Destaca-se ainda a coluna "Autores" que comporta um dicionário com a lista de parlamentares ou outro tipos entes que participaram da autoria da proposição. A tabela oference ainda link para download do texto completo.
+
+```{python}
+#| layout-nrow: 2
+#| layout-ncol: 1
+#| fig-cap: "Evolução temporal de proposições"
+#| fig-subcap: 
+#|   - "Evolução anual"
+#|   - "Série temporal com média movel"
+
+import numpy as np
+
+from funcoes.Figures import create_line_chart_go, create_time_series_chart_go
+from funcoes.utils import preprocessar_proposicao_media_movel
+
+# Checar valores nulos
+
+
+valores_nulos_data = df[df['DataPublicacao'].isnull()]
+
+nr_valores_nulos_data = formatar_numero_brl(len(valores_nulos_data),casas_decimais=0)
+
+df['data'] = np.where(df['DataPublicacao'].notnull(), df['DataPublicacao'], df['DataAtualizacao'])
+
+df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y')
+
+df['ano'] = df['data'].dt.year
+
+df['ano'].head()
+
+contagem_ano = df['ano'].value_counts().reset_index()
+
+contagem_ano.columns = ['ano', 'contagem']
+
+contagem_ano.sort_values('ano', ignore_index=True, inplace=True)
+
+fig = create_line_chart_go(
+    data=contagem_ano,
+    x_col='ano',
+    y_col='contagem',
+    title='Contagem Anual de proposições',
+    line_color='green',
+    line_width=3,
+    height=400
+)
+
+for ano in inicio_legislaturas_ano:
+    if ano >= 1959:
+      fig.add_shape(
+        type="line",
+        x0=ano,
+        y0=0,
+        x1=ano,
+        y1=1,
+        xref='x',
+        yref='paper',
+        line=dict(color="red", width=2, dash="dash")
+    )
+
+proprosicao_media_movel = preprocessar_proposicao_media_movel(df, window=10)
+
+# Step 2: Create chart using the new function
+fig_media_movel = create_time_series_chart_go(
+    data=proprosicao_media_movel,
+    date_col='date',
+    value_col='total_propositions',
+    ma_col='moving_avg_5d',
+    title='Proposições Diárias com Média Móvel de 10 Dias',
+    height=500
+)
+
+for data in legislaturas['dataInicio']:
+  if data >= pd.Timestamp('1959-01-01'):
+    fig_media_movel.add_shape(
+        type="line",
+        x0=data,
+        y0=0,
+        x1=data,
+        y1=1,
+        xref='x',
+        yref='paper',
+        line=dict(color="red", width=2, dash="dash")
+    )
+
+fig.show()
+
+fig_media_movel.show()
+
+
+```
+
+Vamos então observar a evolução de proposições legislativas ao longo do tempo. Primeiramente foi necessário lidar com os dados faltantes, uma vez que há `{python} nr_valores_nulos_data` registros sem valores de data de publicação
+
+
+
+

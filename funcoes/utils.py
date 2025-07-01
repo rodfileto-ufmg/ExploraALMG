@@ -25,3 +25,22 @@ def preprocessar_proposicao_media_movel(df, date_col='DataPublicacao', window=5)
     daily_counts = daily_counts.sort_values('date')
     daily_counts['moving_avg_5d'] = daily_counts['total_propositions'].rolling(window=window, min_periods=1).mean()
     return daily_counts
+
+def preprocessar_proposicao_media_movel_mensal(df, date_col='DataPublicacao', window=5):
+    df_work = df.copy()
+    df_work[date_col] = pd.to_datetime(df_work[date_col], format='%d/%m/%Y')
+
+    # Agrupar por mês
+    monthly_counts = df_work.groupby(df_work[date_col].dt.to_period('M')).size().reset_index()
+    monthly_counts.columns = ['month', 'total_propositions']
+
+    # Converter period para timestamp (se quiser trabalhar como datetime)
+    monthly_counts['month'] = monthly_counts['month'].dt.to_timestamp()
+
+    # Ordenar por mês
+    monthly_counts = monthly_counts.sort_values('month')
+
+    # Calcular média móvel sobre os meses
+    monthly_counts['moving_avg'] = monthly_counts['total_propositions'].rolling(window=window, min_periods=1).mean()
+
+    return monthly_counts

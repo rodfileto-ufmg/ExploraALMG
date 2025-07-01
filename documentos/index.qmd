@@ -1,0 +1,29 @@
+---
+title: "Explorando dados abertos da ALMG"
+date-modified: last-modified
+repo-url: https://github.com/rodfileto-ufmg/ExploraALMG
+engine: jupyter
+lang: pt
+author: "Rodrigo Fileto"
+format:
+  html:
+    link-external-newwindow: true
+    code-fold: true
+    code-tools: true
+    code-copy: true
+    theme:
+      light: flatly
+      dark: darkly
+    toc: true    
+    number-sections: true
+    other-links:
+      - text: Dados Abertos da ALMG
+        href: https://dadosabertos.almg.gov.br
+    code-links: repo  
+---
+
+**Seja bem-vindo!** Nesta página, vamos explorar a plataforma de dados abertos da Assembleia Legislativa de Minas Gerais (ALMG). Ela disponibiliza conjuntos de dados estruturados em diversos formatos (CSV, XML, JSON) sobre as atividades legislativas da casa. Esses dados podem ser baixados e analisados tanto qualitativa quanto quantitativamente, permitindo compreender diferentes nuances de uma das dimensões da política no Estado de Minas Gerais.
+
+Considero que essa plataforma é um recurso valioso para cientistas sociais em geral, especialmente para cientistas políticos. Além disso, pode ser de grande interesse para profissionais e entusiastas de ciência de dados.
+
+{{< include 01_explorando.qmd >}}

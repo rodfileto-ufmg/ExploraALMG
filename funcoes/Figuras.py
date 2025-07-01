@@ -172,12 +172,13 @@ def create_horizontal_bar_chart_go(data, x_col, y_col, title="Horizontal Bar Cha
     return fig
 
 def create_time_series_chart_go(data, date_col, value_col, ma_col=None, 
-                               title="Time Series Chart", height=500,
-                               daily_color='lightblue', ma_color='red',
-                               show_markers=True, ma_width=3):
+                                title="Time Series Chart", height=500,
+                                daily_color='blue', ma_color='red',
+                                show_markers=True, ma_width=3,
+                                show_slider=False, extra_months=1):
     """
     Create a time series chart with moving average using Plotly Graph Objects
-    
+
     Parameters:
     -----------
     data : pandas.DataFrame or dict
@@ -185,7 +186,7 @@ def create_time_series_chart_go(data, date_col, value_col, ma_col=None,
     date_col : str
         Column name for date/time axis
     value_col : str
-        Column name for main values (daily counts)
+        Column name for main values (daily/monthly counts)
     ma_col : str, optional
         Column name for moving average values
     title : str
@@ -193,52 +194,53 @@ def create_time_series_chart_go(data, date_col, value_col, ma_col=None,
     height : int
         Chart height in pixels
     daily_color : str
-        Color for daily values line
+        Color for daily/monthly values line
     ma_color : str
         Color for moving average line
     show_markers : bool
         Whether to show markers on daily values
     ma_width : int
         Width of moving average line
-    
+    show_slider : bool
+        Whether to show a range slider and range selector on the x-axis
+    extra_months : int
+        Number of extra months to add at the end of x-axis (default: 1)
+
     Returns:
     --------
-    plotly.
-
-import plotly.graph_objects as go
-import pandas as pdgraph_objects.Figure
+    plotly.graph_objects.Figure
     """
-    
+
     # Convert to DataFrame if dict
     if isinstance(data, dict):
         df = pd.DataFrame(data)
     else:
         df = data.copy()
-    
+
     # Ensure date column is datetime
     if not pd.api.types.is_datetime64_any_dtype(df[date_col]):
         df[date_col] = pd.to_datetime(df[date_col])
-    
+
     # Create figure
     fig = go.Figure()
-    
+
     # Add daily values trace
     mode = 'lines+markers' if show_markers else 'lines'
     daily_trace = go.Scatter(
         x=df[date_col],
         y=df[value_col],
         mode=mode,
-        name='Contagem Diária',
+        name='Contagem',
         line=dict(color=daily_color, width=1),
         opacity=0.7,
-        hovertemplate='<b>Date:</b> %{x}<br><b>Count:</b> %{y}<extra></extra>'
+        hovertemplate='<b>Data:</b> %{x|%d/%m/%Y}<br><b>Contagem:</b> %{y}<extra></extra>'
     )
-    
+
     if show_markers:
         daily_trace.marker = dict(size=4, color=daily_color)
-    
+
     fig.add_trace(daily_trace)
-    
+
     # Add moving average trace if column provided
     if ma_col and ma_col in df.columns:
         ma_trace = go.Scatter(
@@ -247,10 +249,37 @@ import pandas as pdgraph_objects.Figure
             mode='lines',
             name='Média Móvel',
             line=dict(color=ma_color, width=ma_width),
-            hovertemplate='<b>Date:</b> %{x}<br><b>Moving Avg:</b> %{y:.2f}<extra></extra>'
+            hovertemplate='<b>Data:</b> %{x|%d/%m/%Y}<br><b>Média Móvel:</b> %{y:.2f}<extra></extra>'
         )
         fig.add_trace(ma_trace)
-    
+
+    # Define min and max date for x-axis
+    min_date = df[date_col].min()
+    max_date = df[date_col].max() + pd.DateOffset(months=extra_months)
+
+    # Define layout for x-axis (slider and range selector)
+    xaxis_config = dict(
+        title="",
+        showgrid=False,
+        gridcolor='lightgray',
+        gridwidth=0.5,
+        range=[min_date, max_date]
+    )
+
+    if show_slider:
+        xaxis_config["rangeslider"] = dict(visible=True)
+        xaxis_config["rangeselector"] = dict(
+            buttons=list([
+                dict(count=1, label="1 ano", step="year", stepmode="backward"),
+                dict(count=10, label="10 anos", step="year", stepmode="backward"),
+                dict(step="all", label="Todos")
+            ]),
+            bgcolor="rgba(240,240,240,0.6)",
+            bordercolor="gray",
+            borderwidth=1,
+            activecolor="#666"
+        )
+
     # Update layout
     fig.update_layout(
         title=dict(
@@ -260,12 +289,7 @@ import pandas as pdgraph_objects.Figure
         ),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        xaxis=dict(
-            title="",
-            showgrid=False,
-            gridcolor='lightgray',
-            gridwidth=0.5
-        ),
+        xaxis=xaxis_config,
         yaxis=dict(
             title="",
             showgrid=False,
@@ -284,7 +308,7 @@ import pandas as pdgraph_objects.Figure
         ),
         height=height
     )
-    
+
     return fig
 
 

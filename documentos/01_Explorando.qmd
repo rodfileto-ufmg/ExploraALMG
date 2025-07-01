@@ -1,97 +1,320 @@
 ---
-title: "Explorando dados abertos da ALMG"
-repo-url: https://github.com/rodfileto-ufmg/ExploraALMG
-engine: jupyter
-lang: pt
-author: "Rodrigo Fileto"
-format:
-  html:
-    link-external-newwindow: true
-    code-fold: true
-    theme:
-      light: flatly
-      dark: darkly
-    toc: true    
-    number-sections: true
-    other-links:
-      - text: Dados Abertos da ALMG
-        href: https://dadosabertos.almg.gov.br
-    code-links: repo  
+bibliography: references.bib
 ---
-
-Seja bem vindo! Neste conjunto de documentos vamos explorar a plataforma de dados abertos da Assembléia Legislativa de Minas Gerais (ALMG).
 
 # Importação dos dados das proposições legislativas
 
-Vejamos primeiro como exportar os dados. Para este projeto utilizei especificamente o conjunto de arquivos de proposições em formato csv disponibilizados na plataforma da ALMG. Os arquivos foram acessados e carregados em banco de dados no formato sqlite3, o qual pode ser acessado posteriormente em diversas ferramentas para análise, tais como o python e o R.
+Existem duas formas para acessar os dados da ALMG. A primeira, e mais simples, é baixando os arquivos csv. Até o presente momento são disponibilizados 07 conjuntos de dados referentes à [**Legislação mineira**](https://dadosabertos.almg.gov.br/documentacao/arquivos/legislacao-mineira), [**Proposições**](https://dadosabertos.almg.gov.br/documentacao/arquivos/proposicoes), [**Tramitação de proposições**](https://dadosabertos.almg.gov.br/documentacao/arquivos/tramitacao-de-proposicoes), [**Deputados da atual legislatura**](https://dadosabertos.almg.gov.br/documentacao/arquivos/deputados-da-atual-legislatura), [**Deputados**](https://dadosabertos.almg.gov.br/documentacao/arquivos/deputados) desde a 8ª Legislatura e [**Verbas indenizatórias**](https://dadosabertos.almg.gov.br/documentacao/arquivos/verbas-indenizatorias).
 
+A segunda é através do *API* que permite pesquisas mais customizadas cujos os resultados são no formato xml ou csv. Para este projeto de análse exploratório de dados, importaremos tanto os arquivos csv quanto json através do *API*. Por exemplo, os dados de proposições foram baixados pelos arquivos csv, enquanto dados sobre legislaturas[^1] foram baixados através da API (código aqui). Todos os arquivos baixados nesse projeto são salvos em base de dados *sqlite* para posterior análise.
 
-# Exploração Inicial dos dados
+[^1]: Incluem nesse conjunto a data de início, data de fim e data da eleição referente à cada legislatura.
 
 ```{python}
+#| code-fold: true
+#| code-summary: "Código para importar dados de proposições"
+#| eval: false
 
+import requests
+import sqlite3
+import csv
+from io import StringIO
+
+def baixar_arquivo_em_memoria(ano):
+    print(f"Baixando arquivos de proposições para o ano de {ano}")
+    url = f"https://dadosabertos.almg.gov.br/arquivo/proposicoes/download?ano={ano}&tipo=CSV"
+    response = requests.get(url)
+    response.raise_for_status()
+    print(f"Arquivo de {ano} baixado com sucesso na memória")
+    return response.text
+
+def criar_tabela_proposicoes(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS proposicoes (
+            Codigo TEXT PRIMARY KEY,
+            TipoProposicao TEXT,
+            SiglaTipoProposicao TEXT,
+            Numero TEXT,
+            Ano TEXT,
+            Ementa TEXT,
+            Indexacao TEXT,
+            Situacao TEXT,
+            DataPublicacao TEXT,
+            DataAtualizacao TEXT,
+            DataUltimaAcao TEXT,
+            Regime TEXT,
+            Resumo TEXT,
+            Origem TEXT,
+            Local TEXT,
+            NomeFaseAtual TEXT,
+            Legislatura TEXT,
+            Autores TEXT,
+            LinkTextos TEXT,
+            ano_arquivo INTEGER
+        )
+    ''')
+    conn.commit()
+
+def carregar_csv_no_sqlite(ano, conn):
+    csv_text = baixar_arquivo_em_memoria(ano)
+    csv_file = StringIO(csv_text)
+    reader = csv.DictReader(csv_file, delimiter=',')
+
+    cursor = conn.cursor()
+
+    for row in reader:
+        # Adiciona o ano na linha
+        row['ano_arquivo'] = ano
+
+        # Cria uma tupla com os valores na ordem correta
+        values = (
+            row.get('Codigo'),
+            row.get('TipoProposicao'),
+            row.get('SiglaTipoProposicao'),
+            row.get('Numero'),
+            row.get('Ano'),
+            row.get('Ementa'),
+            row.get('Indexacao'),
+            row.get('Situacao'),
+            row.get('DataPublicacao'),
+            row.get('DataAtualizacao'),
+            row.get('DataUltimaAcao'),
+            row.get('Regime'),
+            row.get('Resumo'),
+            row.get('Origem'),
+            row.get('Local'),
+            row.get('NomeFaseAtual'),
+            row.get('Legislatura'),
+            row.get('Autores'),
+            row.get('LinkTextos'),
+            row.get('ano_arquivo')
+        )
+
+        # Executa o insert ou replace
+        cursor.execute('''
+            INSERT OR REPLACE INTO proposicoes (
+                Codigo, TipoProposicao, SiglaTipoProposicao, Numero, Ano,
+                Ementa, Indexacao, Situacao, DataPublicacao, DataAtualizacao,
+                DataUltimaAcao, Regime, Resumo, Origem, Local, NomeFaseAtual,
+                Legislatura, Autores, LinkTextos, ano_arquivo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', values)
+
+    conn.commit()
+    print(f"Dados do ano {ano} adicionados/atualizados na tabela 'proposicoes'")
+
+# Conectar ao banco SQLite
+conn = sqlite3.connect('database.db')
+
+# Criar tabela (se não existir)
+criar_tabela_proposicoes(conn)
+
+# Carregar dados de anos específicos
+anos = range(1980, 2026)
+for ano in anos:
+    carregar_csv_no_sqlite(ano, conn)
+
+# Fechar conexão
+conn.close()
+
+```
+
+```{python}
+#| code-fold: true
+#| code-summary: "Código para importar dados de legislaturas"
+#| eval: false
+
+import requests
+import sqlite3
+
+# URL do JSON
+url = "https://dadosabertos.almg.gov.br/api/v2/legislaturas/lista?formato=json"
+
+# Baixar o JSON
+response = requests.get(url)
+data = response.json()
+
+# Conectar ao banco SQLite (cria se não existir)
+conn = sqlite3.connect('database.db')
+cursor = conn.cursor()
+
+# Criar tabela legislaturas
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS legislaturas (
+    id INTEGER PRIMARY KEY,
+    dataInicio TEXT,
+    dataTermino TEXT,
+    dataEleicao TEXT
+)
+''')
+
+# Inserir dados na tabela
+for item in data.get('listaLegislatura', []):
+    cursor.execute('''
+    INSERT OR REPLACE INTO legislaturas (id, dataInicio, dataTermino, dataEleicao)
+    VALUES (?, ?, ?, ?)
+    ''', (
+        item.get('id'),
+        item.get('dataInicio'),
+        item.get('dataTermino'),
+        item.get('dataEleicao')  # Pode ser None se não existir
+    ))
+
+# Salvar (commit) e fechar conexão
+conn.commit()
+conn.close()
+
+print("Dados inseridos com sucesso na tabela legislaturas.")
+
+```
+
+# Exploração dos dados
+
+```{python}
+#| code-fold: true
+
+# Importações
 import pandas as pd
 import sys
 import os
 import sqlite3
 import locale
 
+# Configurações
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 
 # Adiciona a raiz do projeto ao sys.path
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
 
+# Importações locais
 from funcoes.utils import formatar_numero_brl
-
 from funcoes.Figuras import create_horizontal_bar_chart_go
 
-# Caminho para o database.db na raiz do projeto
+# Configuração do banco de dados
 db_path = os.path.abspath(os.path.join(os.getcwd(), '../database.db'))
 
-# Conecta ao banco na raiz do projeto
+# Conexão e consultas
 conn = sqlite3.connect(db_path)
 
-df = pd.read_sql_query(f"SELECT * FROM proposicoes", conn).sort_values('Ano', ascending=False, ignore_index=True)
+# Carrega dados das proposições
+df = pd.read_sql_query(
+    "SELECT * FROM proposicoes", 
+    conn
+).sort_values('Ano', ascending=False, ignore_index=True)
 
+# Carrega dados das legislaturas
+legislaturas = pd.read_sql_query("SELECT * FROM legislaturas", conn)
+
+# Fecha conexão
+conn.close()
+
+# Processamento dos dados
 nr_proposicoes = formatar_numero_brl(len(df), casas_decimais=0)
 
-legislaturas = pd.read_sql_query(f"SELECT * from legislaturas", conn)
-
-legislaturas['dataInicio'] = pd.to_datetime(legislaturas['dataInicio'], format='%Y-%m-%d')
-
-# Fechar conexão
-conn.close()
+legislaturas['dataInicio'] = pd.to_datetime(
+    legislaturas['dataInicio'], 
+    format='%Y-%m-%d'
+)
 
 inicio_legislaturas_ano = legislaturas['dataInicio'].dt.year
 
 ```
 
+Começarei a análise exploratória a partir dos arquivos de proposições. Estão disponíveis dados no período de 1959-2025 resultando no total de `{python} nr_proposicoes` proposicões. A @tbl-proposicao apresenta uma amostra destes dados. Como informações básicas temos o tipo, número e ano da proposição, o resumo (Ementa), temas (Indexacao) e em que fase do processo legislativo se encontra a proposição.
 
-Delimitei para esta análise todo o período disponibilizado (1959-2025) resultando na coleta de `{python} nr_proposicoes` proposicões. A @tbl-proposicao apresenta uma amostra destes dados. Como informações básicas temos o tipo, número e ano da proposição, o resumo (Ementa), temas (Indexacao) e em que fase do processo legislativo se encontra a proposição.
-
+Destaca-se ainda a coluna "Autores" que comporta um dicionário com a lista de parlamentares ou outro tipos entes que participaram da autoria da proposição. Esta informação é importante e apresenta oportunidades para estudos com foco na análise de rede de co-autoria entre os parlamentares, lançando luz às conexões políticas e sociais bem como identificação de hierarquias entre eles. A tabela oferece ainda link para download do texto completo. Este campo propicia análises qualitativas, por meio da análise do discurso por exemplo, bem como análises quantitativas através da mineração de texto. Deste modo, podemos entender o perfil ideológico dos parlamentares individual ou coletivamente além da identificação de tópicos emergentes que sejam tratados naquela casa legislativa.
 
 ```{python}
 #| label: tbl-proposicao
 #| tbl-cap: Amostra dos dados sobre proposições legislativas
 #| echo: false
 
+import numpy as np
+
+proposicao_tipo = pd.DataFrame({
+    'count': df.TipoProposicao.value_counts(),
+    'prop': df.TipoProposicao.value_counts(normalize=True)
+})
+
+# Substituir categorias com proporção < 1% por 'Outras'
+new_index = np.where(proposicao_tipo['prop'] < 0.01, 'Outras', proposicao_tipo.index)
+
+proposicao_tipo.index = new_index
+
+# Agrupar somando os counts e props das categorias repetidas
+proposicao_tipo = proposicao_tipo.groupby(proposicao_tipo.index).sum()
+
+# Limpar e formatar categorias: strip e title case
+proposicao_tipo.index = proposicao_tipo.index.str.strip().str.title()
+
+# Ordenar
+proposicao_tipo = proposicao_tipo.sort_values('count', ascending=True)
+
+# Transformar index em coluna
+proposicao_tipo = proposicao_tipo.reset_index().rename(columns={'index': 'TipoProposicao'})
+
+nr_pl = proposicao_tipo.loc[proposicao_tipo['TipoProposicao'] == 'Projeto De Lei', 'count'].values[0]
+
+prop_pl = proposicao_tipo.loc[proposicao_tipo['TipoProposicao'] == 'Projeto De Lei', 'prop'].values[0] * 100
+
+
+nr_rn = proposicao_tipo.loc[proposicao_tipo['TipoProposicao'] == 'Requerimento Numerado', 'count'].values[0]
+
+prop_rn = proposicao_tipo.loc[proposicao_tipo['TipoProposicao'] == 'Requerimento Numerado', 'prop'].values[0] * 100
+
+
+nr_pl = formatar_numero_brl(nr_pl, casas_decimais=0)
+
+prop_pl = formatar_numero_brl(prop_pl, casas_decimais=2)
+
+nr_rn = formatar_numero_brl(nr_rn, casas_decimais=0)
+
+prop_rn = formatar_numero_brl(prop_rn, casas_decimais=2)
+
 df.head()
 
 ```
 
-Destaca-se ainda a coluna "Autores" que comporta um dicionário com a lista de parlamentares ou outro tipos entes que participaram da autoria da proposição. A tabela oference ainda link para download do texto completo.
+Para finalizar essa parte introdutória apresento uma contagem dos tipos de proposição na @fig-tipo-proposicao. Importante destacar que ainda que os projetos de lei tenham uma grande representatividade respondendo com `{python} nr_pl` (cerca de `{python} prop_pl`), ele perde para o Requerimento Numerado que é o tipo de proposição mais recorrente com `{python} nr_rn` (cerca de `{python} prop_pl`% do total).
+
+Esta informação é importante, uma vez que a literatura geralmente aborda os projetos de lei como principal objeto de análise. É o caso por exemplo, em Fowler [-@fowler2006] no qual a rede de co-autoria de projetos de lei é construída de modo a construir indicadores de influência legislativa. Considero que, ainda que a proposição de projetos de lei seja bastante representativa da influência ddo parlamentar, bem como de seu perfil ideológico, não podemos descartar os demais tipos de proposições.
 
 ```{python}
-#| label: fig-charts
-#| fig-cap: "Charts"
-#| fig-subcap: 
-#|   - "Teste"
-#|   - "Second"
-#| layout-ncol: 2
+#| code-fold: true
+#| label: fig-tipo-proposicao
+#| fig-cap: Contagem de proposições por tipo
+#| echo: false
+
+# Plotar gráfico horizontal
+fig = create_horizontal_bar_chart_go(
+    proposicao_tipo, 'count', 'TipoProposicao',
+    title='', show_percentages=True, bar_color='blue'
+)
+
+fig.show()
+
+
+```
+
+## Evolução temporal do protocolo de proposições
+
+Vamos então observar a evolução de proposições legislativas ao longo do tempo. Existe algum período específico em que os deputados e deputadas possuem maior propensão para protocolar projetos de lei e outros requerimentos? Para responder esta pergunta plotei os dados com a data de protocolo das proposições legislativas. Não realizei nenhum filtro com relação ao tipo de proposição nem com relação ao lapso temporal de modo a ter uma visualização bem generalista.
+
+A contagem foi aglutinada mensalmente e os resultados tanto com a contagem bruta e com a média móvel de 03 meses estão na @fig-evolucao-temporal. Inseri também uma linha vertical pontilhada que indica a data de início de cada legislatura.
+
+Destaco como o principal ponto o pico de proposições no primeiro ano de cada legislatura, fenômeno que se torna visualmente mais acentuado a partir de 1987. Isto demonstra uma interessante avenida de pesquisa. Através de métodos quantitativos poderíamos efetuar análises estatísticas de séries temporais para identifcar picos e sazonalidades de maneira mais robusta, bem como identificar possíveis causas para estes picos. De outro modo, estudos qualitativos poderiam tentar explicar as causas desse pico no primeiro o ano da legislatura.
+
+```{python}
+#| code-fold: true
+#| label: fig-evolucao-temporal
+#| fig-cap: Número de proposições mensais
+#| echo: false
 
 import numpy as np
+import plotly.graph_objects as go
 from funcoes.Figuras import create_line_chart_go, create_time_series_chart_go
-from funcoes.utils import preprocessar_proposicao_media_movel
+from funcoes.utils import preprocessar_proposicao_media_movel, preprocessar_proposicao_media_movel_mensal
 
 # Checar valores nulos
 
@@ -103,65 +326,41 @@ df['data'] = np.where(df['DataPublicacao'].notnull(), df['DataPublicacao'], df['
 
 df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y')
 
-df['ano'] = df['data'].dt.year
-
-contagem_ano = df['ano'].value_counts().reset_index()
-
-contagem_ano.columns = ['ano', 'contagem']
-
-contagem_ano.sort_values('ano', ignore_index=True, inplace=True)
-
-fig = create_line_chart_go(
-    data=contagem_ano,
-    x_col='ano',
-    y_col='contagem',
-    title='',
-    line_color='green',
-    line_width=3,
-    height=400
-)
-
-for ano in inicio_legislaturas_ano:
-    if ano >= 1959:
-      fig.add_shape(
-        type="line",
-        x0=ano,
-        y0=0,
-        x1=ano,
-        y1=1,
-        xref='x',
-        yref='paper',
-        line=dict(color="red", width=2, dash="dash")
-    )
-
-proprosicao_media_movel = preprocessar_proposicao_media_movel(df, window=10)
+proprosicao_media_movel = preprocessar_proposicao_media_movel_mensal(df, window=3)
 
 # Step 2: Create chart using the new function
 fig_media_movel = create_time_series_chart_go(
     data=proprosicao_media_movel,
-    date_col='date',
+    show_slider=True,
+    date_col='month',
     value_col='total_propositions',
-    ma_col='moving_avg_5d',
+    ma_col='moving_avg',
     title='',
+    extra_months=1,
     height=500
 )
 
-for data in legislaturas['dataInicio']:
-  if data >= pd.Timestamp('1959-01-01'):
-    fig_media_movel.add_shape(
-        type="line",
-        x0=data,
-        y0=0,
-        x1=data,
-        y1=1,
-        xref='x',
-        yref='paper',
-        line=dict(color="red", width=2, dash="dash")
-    )
+# Adiciona linhas tracejadas verticais para as legislaturas
+for i, row in legislaturas.iterrows():
+    data_inicio = row['dataInicio']
+    
+    if data_inicio >= pd.Timestamp('1959-01-01'):
+        fig_media_movel.add_vline(
+            x=data_inicio,
+            line=dict(color="red", width=1.5, dash="dash"),
+            layer="below"
+        )
 
-fig.show()
+# Adiciona item na legenda para "Início de Legislatura"
+fig_media_movel.add_trace(
+    go.Scatter(
+        x=[None], y=[None],
+        mode='lines',
+        line=dict(color="red", width=1.5, dash="dash"),
+        name="Início de Legislatura"
+    )
+)
+
+
 fig_media_movel.show()
 ```
-
-Vamos então observar a evolução de proposições legislativas ao longo do tempo. Primeiramente foi necessário lidar com os dados faltantes, uma vez que há `{python} nr_valores_nulos_data` registros sem valores de data de publicação
-

@@ -1,7 +1,3 @@
----
-bibliography: references.bib
----
-
 # Importação dos dados das proposições legislativas
 
 Existem duas formas para acessar os dados da ALMG. A primeira, e mais simples, é baixando os arquivos csv. Até o presente momento são disponibilizados 07 conjuntos de dados referentes à [**Legislação mineira**](https://dadosabertos.almg.gov.br/documentacao/arquivos/legislacao-mineira), [**Proposições**](https://dadosabertos.almg.gov.br/documentacao/arquivos/proposicoes), [**Tramitação de proposições**](https://dadosabertos.almg.gov.br/documentacao/arquivos/tramitacao-de-proposicoes), [**Deputados da atual legislatura**](https://dadosabertos.almg.gov.br/documentacao/arquivos/deputados-da-atual-legislatura), [**Deputados**](https://dadosabertos.almg.gov.br/documentacao/arquivos/deputados) desde a 8ª Legislatura e [**Verbas indenizatórias**](https://dadosabertos.almg.gov.br/documentacao/arquivos/verbas-indenizatorias).

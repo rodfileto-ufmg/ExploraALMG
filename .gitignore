@@ -1,3 +1,4 @@
 database.db
-__pycache__
-.BlogAlmg/
+__pycache__/
+.env/
+env/

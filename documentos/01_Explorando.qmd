@@ -1,8 +1,8 @@
 # Importação dos dados das proposições legislativas
 
-Existem duas formas para acessar os dados da ALMG. A primeira, e mais simples, é baixando os arquivos csv. Até o presente momento são disponibilizados 07 conjuntos de dados referentes à [**Legislação mineira**](https://dadosabertos.almg.gov.br/documentacao/arquivos/legislacao-mineira), [**Proposições**](https://dadosabertos.almg.gov.br/documentacao/arquivos/proposicoes), [**Tramitação de proposições**](https://dadosabertos.almg.gov.br/documentacao/arquivos/tramitacao-de-proposicoes), [**Deputados da atual legislatura**](https://dadosabertos.almg.gov.br/documentacao/arquivos/deputados-da-atual-legislatura), [**Deputados**](https://dadosabertos.almg.gov.br/documentacao/arquivos/deputados) desde a 8ª Legislatura e [**Verbas indenizatórias**](https://dadosabertos.almg.gov.br/documentacao/arquivos/verbas-indenizatorias).
+Há duas formas principais para acessar os dados da ALMG. A primeira, mais simples, é o dowload direto dos arquivos csv estando atualmente disponíveis sete conjuntos: [**Legislação mineira**](https://dadosabertos.almg.gov.br/documentacao/arquivos/legislacao-mineira), [**Proposições**](https://dadosabertos.almg.gov.br/documentacao/arquivos/proposicoes), [**Tramitação de proposições**](https://dadosabertos.almg.gov.br/documentacao/arquivos/tramitacao-de-proposicoes), [**Deputados da atual legislatura**](https://dadosabertos.almg.gov.br/documentacao/arquivos/deputados-da-atual-legislatura), [**Deputados**](https://dadosabertos.almg.gov.br/documentacao/arquivos/deputados) desde a 8ª Legislatura e [**Verbas indenizatórias**](https://dadosabertos.almg.gov.br/documentacao/arquivos/verbas-indenizatorias).
 
-A segunda é através do *API* que permite pesquisas mais customizadas cujos os resultados são no formato xml ou csv. Para este projeto de análse exploratório de dados, importaremos tanto os arquivos csv quanto json através do *API*. Por exemplo, os dados de proposições foram baixados pelos arquivos csv, enquanto dados sobre legislaturas[^1] foram baixados através da API (código aqui). Todos os arquivos baixados nesse projeto são salvos em base de dados *sqlite* para posterior análise.
+A segunda forma é por meio da *API*, que permite consultas mais personalizadas, com resultados no formato XML ou JSON. Para este projeto de análse exploratória, utilizei arquivos csv e dados obtidos via API em formato JSON. Por exemplo, os dados de proposições foram baixados como CSV, enquanto, enquanto dados sobre legislaturas[^1] foram extraídos por meio da API. Todos os arquivos foram armazenados em um banco de dados *SQLite* para posterior análise.
 
 [^1]: Incluem nesse conjunto a data de início, data de fim e data da eleição referente à cada legislatura.
 
@@ -217,9 +217,15 @@ inicio_legislaturas_ano = legislaturas['dataInicio'].dt.year
 
 ```
 
-Começarei a análise exploratória a partir dos arquivos de proposições. Estão disponíveis dados no período de 1959-2025 resultando no total de `{python} nr_proposicoes` proposicões. A @tbl-proposicao apresenta uma amostra destes dados. Como informações básicas temos o tipo, número e ano da proposição, o resumo (Ementa), temas (Indexacao) e em que fase do processo legislativo se encontra a proposição.
+A análise exploratória começa pelas proposições[^2]. Os dados abrangem o período de 1959-2025, totalizando `{python} nr_proposicoes` registros. A @tbl-proposicao apresenta uma amostra destes dados. Entre as informações básicas estão o tipo, número e ano da proposição, o resumo (Ementa), temas (Indexacao) e a fase atual do processo legislativo.
 
-Destaca-se ainda a coluna "Autores" que comporta um dicionário com a lista de parlamentares ou outro tipos entes que participaram da autoria da proposição. Esta informação é importante e apresenta oportunidades para estudos com foco na análise de rede de co-autoria entre os parlamentares, lançando luz às conexões políticas e sociais bem como identificação de hierarquias entre eles. A tabela oferece ainda link para download do texto completo. Este campo propicia análises qualitativas, por meio da análise do discurso por exemplo, bem como análises quantitativas através da mineração de texto. Deste modo, podemos entender o perfil ideológico dos parlamentares individual ou coletivamente além da identificação de tópicos emergentes que sejam tratados naquela casa legislativa.
+[^2]: Uma "proposição" refere-se a qualquer matéria que está em tramitação na ALMG. Inclui diversos tipos de documentos como projetos de lei, projetos de lei complementar, propostas de emenda à constituição, projetos de resolução, vetos, indicações e requerimentos.
+
+Na tabela de proposições destaco ainda a coluna "Autores", que contém um dicionário com a identificação dos parlamentares ou entidades participaram da autoria da proposição. Esta informação é útil para estudos de redes de co-autoria, permitindo identificar conexões políticas, sociais e possíveis hierarquias entre os parlamentares. 
+
+Alémd disso, a tabela oferece ainda link para download dos textos completos das proposição. Esses arquivos possibilitam análises qualitativas, como a análise do discurso, e quantitativas por meio da mineração de texto. Isso permite identificar o perfil ideológico dos parlamentares, individualmente ou em grupos, e revelar os principais temas debatidos na Casa Legislativa.
+
+## Contagem de proposições por tipo
 
 ```{python}
 #| label: tbl-proposicao
@@ -272,9 +278,10 @@ df.head()
 
 ```
 
-Para finalizar essa parte introdutória apresento uma contagem dos tipos de proposição na @fig-tipo-proposicao. Importante destacar que ainda que os projetos de lei tenham uma grande representatividade respondendo com `{python} nr_pl` (cerca de `{python} prop_pl`), ele perde para o Requerimento Numerado que é o tipo de proposição mais recorrente com `{python} nr_rn` (cerca de `{python} prop_pl`% do total).
+Para finalizar essa parte introdutória na @fig-tipo-proposicao uma contagem dos tipos de proposição. Importante destacar que, embora os projetos de lei tenham grande representatividade, respondendo com `{python} nr_pl` (cerca de `{python} prop_pl`), eles são superados pelos Requerimentos Numerados, que representam o tipo de proposição mais recorrente, com `{python} nr_rn` (cerca de `{python} prop_pl`% do total).
 
-Esta informação é importante, uma vez que a literatura geralmente aborda os projetos de lei como principal objeto de análise. É o caso por exemplo, em Fowler [-@fowler2006] no qual a rede de co-autoria de projetos de lei é construída de modo a construir indicadores de influência legislativa. Considero que, ainda que a proposição de projetos de lei seja bastante representativa da influência ddo parlamentar, bem como de seu perfil ideológico, não podemos descartar os demais tipos de proposições.
+Essa informação é relevante, considerando que a literatura frequentemente foca os projetos de lei como principal objeto de análise. É o caso por exemplo, de Fowler [-@fowler2006] em que a rede de coautoria é construída com base nos projetos de lei, a fim de gerar indicadores de influência legislativa. Considero que, embora a proposição de projetos de lei seja um importante indicativo da atuação
+parlamentar e de seu perfil ideológico, não se deve negligenciar os demais tipos de proposição pois estes podem apresentar outras perspectivas da atividade legislativa.
 
 ```{python}
 #| code-fold: true
@@ -295,11 +302,12 @@ fig.show()
 
 ## Evolução temporal do protocolo de proposições
 
-Vamos então observar a evolução de proposições legislativas ao longo do tempo. Existe algum período específico em que os deputados e deputadas possuem maior propensão para protocolar projetos de lei e outros requerimentos? Para responder esta pergunta plotei os dados com a data de protocolo das proposições legislativas. Não realizei nenhum filtro com relação ao tipo de proposição nem com relação ao lapso temporal de modo a ter uma visualização bem generalista.
+Vamos observar agora a evolução das proposições legislativas ao longo do tempo. Haveria algum período específico em que os deputados e deputadas apresentam maior propensão a protocolar projetos de lei ou outros requerimentos? Para responder a essa pergunta, analisei os dados com base na data de protocolo das proposições legislativas. Não apliquei filtros quanto ao tipo de proposição nem quanto ao período, visando a uma
+visualização ampla e geral.
 
-A contagem foi aglutinada mensalmente e os resultados tanto com a contagem bruta e com a média móvel de 03 meses estão na @fig-evolucao-temporal. Inseri também uma linha vertical pontilhada que indica a data de início de cada legislatura.
+A contagem foi agrupada mensalmente com a contagem bruta e média móvel de 03 meses estão na @fig-evolucao-temporal. Também inseri linhas verticais pontilhadas indicando o início de cada legislatura.
 
-Destaco como o principal ponto o pico de proposições no primeiro ano de cada legislatura, fenômeno que se torna visualmente mais acentuado a partir de 1987. Isto demonstra uma interessante avenida de pesquisa. Através de métodos quantitativos poderíamos efetuar análises estatísticas de séries temporais para identifcar picos e sazonalidades de maneira mais robusta, bem como identificar possíveis causas para estes picos. De outro modo, estudos qualitativos poderiam tentar explicar as causas desse pico no primeiro o ano da legislatura.
+Destaco como principal ponto o pico de proposições no primeiro ano de cada legislatura, um fenômeno que se torna visualmente mais evidente a partir de 1987. Isso revela uma interessante avenida de pesquisa: por meio de métodos quantitativos, seria possível realizar análises estatísticas de séries temporais para identificar picos e sazonalidades de forma mais robusta, além de investigar possíveis causas para essas variações. Alternativamente, abordagens qualitativas poderiam explorar através da análise as razões para o aumento de proposições no primeiro ano de mandato.
 
 ```{python}
 #| code-fold: true

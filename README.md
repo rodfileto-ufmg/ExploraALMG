@@ -16,7 +16,6 @@ Este projeto tem como objetivo analisar, tratar e explorar os dados públicos fo
 - **funcoes/**: Scripts e funções auxiliares para manipulação dos dados.
 - **montar_db_legislaturas.py**: Script para montar o banco de dados das legislaturas.
 - **montar_db_proposicoes.py**: Script para montar o banco de dados das proposições.
-- **script.py** e **teste.py**: Scripts principais e de testes.
 - **requirements_linux.txt** e **requirements_windows.txt**: Dependências para execução em diferentes sistemas operacionais.
 
 ## Como usar

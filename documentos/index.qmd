@@ -25,4 +25,4 @@ format:
 
 Considero essa plataforma um recurso valioso para cientistas sociais, especialmente cientistas políticos. Também pode ser de grande interesse para profissionais e entusiastas de ciência de dados.
 
-{{<com include 01_Explorando.qmd >}}
+{{< include 01_Explorando.qmd >}}

@@ -94,7 +94,7 @@ conn = sqlite3.connect('database.db')
 criar_tabela_proposicoes(conn)
 
 # Carregar dados de anos específicos
-anos = range(1980, 2026)
+anos = range(1959, 1980)
 for ano in anos:
     carregar_csv_no_sqlite(ano, conn)
 
